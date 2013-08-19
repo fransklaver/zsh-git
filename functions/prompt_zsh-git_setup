@@ -163,6 +163,28 @@ prompt_wunjo_precmd() {
 	fi
 }
 
+prompt_display_name() {
+	echo "$pc[scm_branch]$1$pc[punc]"
+}
+
+prompt_display_commit() {
+	echo "($pc[scm_commitid]$1$pc[punc])"
+}
+
+prompt_string() {
+	name="$1"
+	ref=$2
+	echo "$(prompt_display_name $name)$(prompt_display_commit $ref)$pc[reset]"
+}
+
+prompt_construct() {
+	item=$1
+	commit=$(revstring $zgit_info[$item])
+	name=$(git name-rev --name-only $zgit_info[$item])
+
+	prompt_string $name $commit
+}
+
 prompt_wunjo_scm_branch() {
 	zgit_isgit || return
 	local -A pc
@@ -174,20 +196,14 @@ prompt_wunjo_scm_branch() {
 	local -a commits
 
 	if zgit_rebaseinfo; then
-		orig_commit=$(revstring $zgit_info[rb_head])
-		orig_name=$(git name-rev --name-only $zgit_info[rb_head])
-		orig="$pc[scm_branch]$orig_name$pc[punc]($pc[scm_commitid]$orig_commit$pc[punc])"
-		onto_commit=$(revstring $zgit_info[rb_onto])
-		onto_name=$(git name-rev --name-only $zgit_info[rb_onto])
-		onto="$pc[scm_branch]$onto_name$pc[punc]($pc[scm_commitid]$onto_commit$pc[punc])"
+		orig=$(prompt_construct rb_head)
+		onto=$(prompt_construct rb_onto)
 
 		if [ -n "$zgit_info[rb_upstream]" ] && [ $zgit_info[rb_upstream] != $zgit_info[rb_onto] ]; then
-			upstream_commit=$(revstring $zgit_info[rb_upstream])
-			upstream_name=$(git name-rev --name-only $zgit_info[rb_upstream])
-			upstream="$pc[scm_branch]$upstream_name$pc[punc]($pc[scm_commitid]$upstream_commit$pc[punc])"
-			commits+="rebasing $upstream$pc[reset]..$orig$pc[reset] onto $onto$pc[reset]"
+			upstream=$(prompt_construct rb_upstream)
+			commits+="rebasing $upstream..$orig onto $onto"
 		else
-			commits+="rebasing $onto$pc[reset]..$orig$pc[reset]"
+			commits+="rebasing $onto..$orig"
 		fi
 
 		local -a revs
@@ -201,7 +217,7 @@ prompt_wunjo_scm_branch() {
 			commits+="$mess"
 		fi
 	elif [ -n "$gitcommit" ]; then
-		commits+="$pc[scm_branch]$head$pc[punc]($pc[scm_commitid]$gitcommit$pc[punc])$pc[reset]"
+		commits+=$(prompt_string $head $gitcommit)
 		local track_merge=$(zgit_tracking_merge)
 		if [ -n "$track_merge" ]; then
 			if git rev-parse --verify -q $track_merge >/dev/null; then
@@ -224,7 +240,8 @@ prompt_wunjo_scm_branch() {
 						conj+=" tracked"
 						tracked=
 					fi
-					commits+="$#revs $word_commits $conj $pc[scm_branch]$base_name$pc[punc]($pc[scm_commitid]$base_short$pc[punc])$pc[reset]"
+					commits+="$#revs $word_commits $conj "
+					commits+=$(prompt_string $base_name $base_short)
 				fi
 
 				if [ -n "$tracked" ]; then
@@ -233,9 +250,9 @@ prompt_wunjo_scm_branch() {
 						track_name=${track_name##*/}
 					fi
 					tracked=$(revstring $tracked)
-					commits+="tracking $pc[scm_branch]$track_name$pc[punc]"
+					commits+="tracking $(prompt_display_name $track_name)"
 					if [[ "$tracked" != "$gitcommit" ]]; then
-						commits[$#commits]+="($pc[scm_commitid]$tracked$pc[punc])"
+						commits[$#commits]+=$(prompt_display_commit $tracked)
 					fi
 					commits[$#commits]+="$pc[reset]"
 				fi
@@ -250,11 +267,11 @@ prompt_wunjo_scm_branch() {
 		if [ -n "$gitsvnrev" ]; then
 			local svninfo=''
 			local -a revs
-			svninfo+="$pc[default]svn$pc[punc]:$pc[scm_branch]r$gitsvnrev"
+			svninfo+="$pc[default]svn$pc[punc]:$(prompt_display_name r$gitsvnrev)"
 			revs=($(git rev-list git-svn..HEAD))
 			if [ $#revs -gt 0 ]; then
 				svninfo+="$pc[punc]@$pc[default]HEAD~$#revs"
-				svninfo+="$pc[punc]($pc[scm_commitid]$gitsvn$pc[punc])"
+				svninfo+="$pc[punc]($(prompt_display_commit $gitsvn)$pc[reset])"
 			fi
 			commits+=$svninfo
 		fi
