@@ -214,11 +214,9 @@ prompt_wunjo_scm_branch() {
 					local base=$(revstring $revs[1]~1)
 					local base_name=$(git name-rev --name-only $base)
 					local base_short=$(revstring $base)
-					local word_commits
+					local word_commits='commit'
 					if [ $#revs -gt 1 ]; then
-						word_commits='commits'
-					else
-						word_commits='commit'
+						word_commits+='s'
 					fi
 
 					local conj="since"
